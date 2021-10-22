@@ -4,16 +4,16 @@
 #include <SPI.h> //library responsible for communicating of SPI bus
 
 //Cambiar por nombre y contrasena
-const char* ssid     = "IZZI-D251";
-const char* password = "La_cubana12345";
+const char* ssid     = "nombre de red";
+const char* password = "contraseña de red";
 
 //web server establece numero de puerto a 80
 WiFiServer server(80);
 
 //Se tiene un RELAY incorporado en terminal 2, se puede usar otro GPIO
-#define RELAY  16
+#define RELAY  13
 //sensor optico
-#define OPTICO_PIN 5
+#define OPTICO_PIN 32
 //rfid
 #define SS_PIN 21
 #define RST_PIN 22
@@ -83,7 +83,32 @@ void loop() {
     if (req.indexOf("RELAY_auto_on") != -1){estado = "Automatico";}
     if (req.indexOf("RELAY_cerrado_on") != -1){estado = "Cerrado";}
 
-    web_page();
+    ///////////////////////////////////////////
+    // Página WEB. ////////////////////////////
+    client.println("HTTP/1.1 200 OK");
+    client.println("Content-Type: text/html");
+    client.println(""); //  Importante.
+    client.println("<!DOCTYPE HTML>");
+    client.println("<html>");
+    client.println("<head><meta charset=utf-8></head>");
+
+    client.println("<style>html { font-family: Helvetica; display: inline-block; margin: 0px auto; text-align: center;}");
+    client.println(".button { background-color: #195B6A; border: none; color: white; padding: 16px 40px;");
+    client.println("text-decoration: none; font-size: 30px; margin: 2px; cursor: pointer;}");
+    client.println(".button2 {background-color: #77878A;}</style></head>");
+
+    // Web Page Heading
+    client.println("<body><h1>Control de puerta</h1>");
+    // Display current state
+    client.println("<p>Estado " + estado + "</p>");
+    // Display current state of the dog
+    client.println("<p>Estado del perro " + in_out + "</p>");
+
+    client.println("<p><a href='RELAY_abierto_on'><button class='button'>Abierto</button></a></p>");
+    client.println("<p><a href='RELAY_auto_on'><button class='button'>Automatico</button></a></p>");
+    client.println("<p><a href='RELAY_cerrado_on'><button class='button'>Cerrado</button></a></p>");
+
+    client.println("</font></center></body></html>");
 
     Serial.print("Cliente desconectado: ");
     Serial.println(client.remoteIP());
@@ -137,12 +162,12 @@ void loop() {
 
         if(flag != HIGH){
 
-          if(digitalRead(OPTIC_1) != HIGH){
+          if(digitalRead(OPTIC_1) != LOW){
             in_out = "Adentro";
             Serial.println(in_out);
             flag = HIGH;
           }
-          else if(digitalRead(OPTIC_2) != HIGH){
+          else if(digitalRead(OPTIC_2) != LOW){
             in_out = "Afuera";
             Serial.println(in_out);
             flag = HIGH;
@@ -165,37 +190,6 @@ void loop() {
   else if(estado == "Cerrado"){
     digitalWrite(RELAY, HIGH); 
   }
-}
-
-void web_page(){
-  //////////////////////////////////////////////
-  // Página WEB. ////////////////////////////
-  client.println("HTTP/1.1 200 OK");
-  client.println("Content-Type: text/html");
-  client.println(""); //  Importante.
-  client.println("<!DOCTYPE HTML>");
-  client.println("<html>");
-  client.println("<head><meta charset=utf-8></head>");
-
-  client.println("<style>html { font-family: Helvetica; display: inline-block; margin: 0px auto; text-align: center;}");
-  client.println(".button { background-color: #195B6A; border: none; color: white; padding: 16px 40px;");
-  client.println("text-decoration: none; font-size: 30px; margin: 2px; cursor: pointer;}");
-  client.println(".button2 {background-color: #77878A;}</style></head>");
-
-  // Web Page Heading
-  client.println("<body><h1>Control de puerta</h1>");
-  // Display current state
-  client.println("<p>Estado " + estado + "</p>");
-  // Display current state of the dog
-  client.println("<p>Estado del perro" + in_out + "</p>");
-
-  client.println("<p><a href='RELAY_abierto_on'><button class='button'>Abierto</button></a></p>");
-  client.println("<p><a href='RELAY_auto_on'><button class='button'>Automatico</button></a></p>");
-  client.println("<p><a href='RELAY_cerrado_on'><button class='button'>Cerrado</button></a></p>");
-
-  client.println("</font></center></body></html>");
-
-  return;
 }
 
 //reads data from card/tag
