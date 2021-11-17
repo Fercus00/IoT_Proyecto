@@ -2,13 +2,20 @@
 #include <WiFiClient.h>
 #include <MFRC522.h> //library responsible for communicating with the module RFID-RC522
 #include <SPI.h> //library responsible for communicating of SPI bus
+#include <PubSubClient.h>
 
 //Cambiar por nombre y contrasena
-const char* ssid     = "nombre de red";
-const char* password = "contraseña de red";
+const char* ssid     = "NOMBRE_RED";
+const char* password = "PASS_RED";
 
+const char* clientid ="NOMBRE_CLIENTE_HA_MQTT";
+const char * user    = "USER_HA";
+const char * pass    = "PASS_HA";
+const char* mqtt_server = "IP_HA";
 //web server establece numero de puerto a 80
 WiFiServer server(80);
+WiFiClient espClient;
+PubSubClient clientMQTT(espClient);
 
 //Se tiene un RELAY incorporado en terminal 2, se puede usar otro GPIO
 #define RELAY  13
@@ -41,6 +48,7 @@ void setup() {
   SPI.begin(); // Init SPI bus
   mfrc522.PCD_Init();// Init MFRC522
   WiFi.begin(ssid, password);// Conectando a WiFi
+  
 
   pinMode(RELAY, OUTPUT);
   pinMode(OPTICO_PIN, INPUT);//sensor optico
@@ -63,8 +71,19 @@ void setup() {
   // Inicio del Servidor web.
   server.begin();
   Serial.println("Servidor web iniciado.");
-}
 
+//*************************************************************
+//Servidor de MQTT HA 
+//*************************************************************
+  clientMQTT.setServer(mqtt_server, 1883);
+  clientMQTT.setBufferSize(512);
+  clientMQTT.connect(clientid, user, pass);
+  if(clientMQTT.connected()){
+    Serial.println("MQTT connected");
+  }else{
+    Serial.println("MQTT not connected");
+  }
+}
 void loop() {
   // Consulta si se ha conectado algún cliente.
   WiFiClient client = server.available();
@@ -79,10 +98,11 @@ void loop() {
     String req = client.readStringUntil('\r');
     Serial.println(req);
     // Realiza la petición del cliente.
-    if (req.indexOf("RELAY_abierto_on") != -1) {estado = "Abierto";}
-    if (req.indexOf("RELAY_auto_on") != -1){estado = "Automatico";}
-    if (req.indexOf("RELAY_cerrado_on") != -1){estado = "Cerrado";}
-
+    if (req.indexOf("RELAY_abierto_on") != -1) {estado = "Abierto";}   
+    if (req.indexOf("RELAY_auto_on") != -1){estado = "Automatico";}  
+    if (req.indexOf("RELAY_cerrado_on") != -1){estado = "Cerrado";}     
+    req="";
+    delay(1000);
     ///////////////////////////////////////////
     // Página WEB. ////////////////////////////
     client.println("HTTP/1.1 200 OK");
@@ -115,16 +135,18 @@ void loop() {
     client.flush();
     client.stop();
   }
+  
 
   ///Estados de la puerta
 
   if(estado == "Abierto"){
     digitalWrite(RELAY, LOW); 
     in_out = "";
+    delay(1000);
+    clientMQTT.publish("TOPIC_MQTT", "Abierto" ,1);   //Publish al MQTT server
   }
 
   else if(estado == "Automatico"){
-
     if(digitalRead(RELAY) == LOW){
       digitalWrite(RELAY, HIGH);
     }
@@ -185,12 +207,15 @@ void loop() {
     mfrc522.PICC_HaltA();
     // "stop" the encryption of the PCD, it must be called after communication with authentication, otherwise new communications can not be initiated
     mfrc522.PCD_StopCrypto1();
+    clientMQTT.publish("TOPIC_MQTT", "Automatico" ,1);  //Publish al MQTT server
+    delay(1000);
+  }else if(estado == "Cerrado"){
+    digitalWrite(RELAY, HIGH);
+    clientMQTT.publish("TOPIC_MQTT", "Cerrado" ,1);   //Publish al MQTT server
   }
-
-  else if(estado == "Cerrado"){
-    digitalWrite(RELAY, HIGH); 
-  }
+  delay(1000);
 }
+
 
 //reads data from card/tag
 String readingData()
